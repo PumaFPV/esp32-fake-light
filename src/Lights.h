@@ -4,16 +4,17 @@
 #include <ArduinoJson.h>
 #include "Settings.h"
 
+
 struct Light {
     uint8_t brightness;
     uint8_t on;
-    uint8_t temperature; // TODO this is not a uint8, but it's not getting used
+    int16_t temperature; // TODO this is not a uint8, but it's not getting used
 
     Light() {
         Settings settings;
         brightness = settings.powerOnBrightness;
         on = settings.powerOnBehavior;
-        temperature = settings.powerOnBrightness;
+        temperature = settings.powerOnTemperature;
     }
 };
 
@@ -39,7 +40,7 @@ struct Lights {
             }
 
             if (light0["temperature"]) {
-                uint8_t temperature = light0["temperature"].as<uint8_t>();
+                int16_t temperature = light0["temperature"].as<int16_t>();
 
                 if (lights[0].temperature != temperature) {
                     lights[0].temperature = temperature;

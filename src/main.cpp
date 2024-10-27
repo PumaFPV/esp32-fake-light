@@ -12,9 +12,11 @@
 #include <Preferences.h>
 #include <ESPmDNS.h>
 #include "Esp32WebApp.h"
+#include "FastLED.h"
 
-#define ONBOARD_LED  2
+#define ONBOARD_LED 4
 #define CONTROL_PIN 23
+#define WLED_PIN    48
 
 // setting PWM properties
 const uint16_t freq = 5000;
@@ -27,6 +29,8 @@ AccessoryInfo info;
 Lights lights;
 Settings settings;
 Esp32WebApp app(server);
+
+CRGB leds[1];
 
 
 typedef std::function<void(JsonObject &)> WriteJsonFunction;
@@ -68,7 +72,7 @@ void writeSettings() {
     preferences.end();
 }
 
-void changeLight(bool on, uint8_t &brightness) {
+void changeLight(bool on, uint8_t &brightness, int16_t &temperature) {
 
     // board LED on
     digitalWrite(ONBOARD_LED, on ? HIGH : LOW);
@@ -76,20 +80,31 @@ void changeLight(bool on, uint8_t &brightness) {
 
     // brightness is a percentage, convert to 0-255
     int pwmValue = 255 * brightness / 100;
+    // temperature goes from 143 to 344 instead of 7000 to 2900
+    int tempValue = map(temperature, 143, 344, 7000, 2900);
 
     Serial.print("Setting light PWM to: ");
     Serial.println(pwmValue);
 
+    Serial.print("Setting light temperature to: ");
+    Serial.println(tempValue);
+
     ledcWrite(ledChannel, pwmValue);
+
+    uint8_t temp = map(tempValue, 2900, 7000, 0, 255);
+
+    leds[0] = 0xFF << 16 | temp << 8 | temp;
+    FastLED.setBrightness(pwmValue);
+    FastLED.show();
 }
 
 void lightOn() {
-    changeLight(true, lights.lights[0].brightness);
+    changeLight(true, lights.lights[0].brightness, lights.lights[0].temperature);
 }
 
 void lightOff() {
     uint8_t off = 0;
-    changeLight(false, off);
+    changeLight(false, off, lights.lights[0].temperature);
 }
 
 void lightsChanges(Light &light) {
@@ -104,7 +119,7 @@ void lightsChanges(Light &light) {
     Serial.println(light.brightness);
 
     if (light.on == 1) {
-        changeLight(true, light.brightness);
+        changeLight(true, light.brightness, lights.lights[0].temperature);
     } else {
         lightOff();
     }
@@ -311,6 +326,9 @@ void registerCliCommands() {
 void setup() {
     // enable serial
     Serial.begin(9600);
+
+    FastLED.addLeds<WS2812B, WLED_PIN, GRB>(leds, 1);
+
 
     Preferences preferences;
     preferences.begin("fake-light", false);
